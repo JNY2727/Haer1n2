@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A Dance of Fire and Ice - Custom Edition</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #08090d;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 1000px;
+            height: 700px;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.9), 0 0 25px rgba(255, 75, 75, 0.25);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        canvas {
+            background: radial-gradient(circle at center, #151627 0%, #08090d 100%);
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #ui {
+            position: absolute;
+            top: 25px;
+            left: 25px;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 5;
+        }
+
+        .hud-text {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: rgba(255, 255, 255, 0.85);
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+
+        #speed-hud {
+            color: #ff3366;
+        }
+
+        #accuracy-display {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 38px;
+            font-weight: 900;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            text-shadow: 0 0 20px currentColor;
+            z-index: 5;
+        }
+
+        #start-screen {
+            position: absolute;
+            inset: 0;
+            background: rgba(8, 9, 13, 0.92);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 40px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            background: linear-gradient(45deg, #ff4b4b, #ff8c00, #4b7bff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(255, 75, 75, 0.4);
+        }
+
+        .menu-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px 30px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .skin-selector {
+            display: flex;
+            gap: 10px;
+        }
+
+        .skin-btn {
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #aaa;
+            background: #151627;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .skin-btn.active {
+            color: #fff;
+            border-color: #ff4b4b;
+            background: rgba(255, 75, 75, 0.2);
+        }
+
+        .skin-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .btn {
+            padding: 12px 36px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #ff4b4b, #ff8c00);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 20px rgba(255, 75, 75, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 6px 25px rgba(255, 75, 75, 0.6);
+        }
+
+        #best-score-hud {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="ui">
+            <div class="hud-text">진행도: <span id="progress">0%</span></div>
+            <div class="hud-text">콤보: <span id="combo">0</span></div>
+            <div class="hud-text" id="speed-hud">속도: <span id="speed-val">1.0x</span></div>
+        </div>
+
+        <div id="best-score-hud">최고 기록: <span id="best-score">0%</span></div>
+        <div id="accuracy-display">PERFECT</div>
+
+        <div id="start-screen">
+            <h1>A DANCE OF FIRE AND ICE</h1>
+            
+            <div class="menu-panel">
+                <div class="hud-text" style="font-size: 13px;">스킨 선택</div>
+                <div class="skin-selector">
+                    <button class="skin-btn active" onclick="setSkin('classic')" id="skin-classic">클래식 (기본)</button>
+                    <button class="skin-btn" onclick="setSkin('neon')" id="skin-neon" disabled>네온 하트 (기록 30% 필요)</button>
+                    <button class="skin-btn" onclick="setSkin('star')" id="skin-star" disabled>골드 스타 (기록 70% 필요)</button>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item"><div class="dot" style="background:#ff4b4b"></div> 가속</div>
+                <div class="legend-item"><div class="dot" style="background:#4b7bff"></div> 감속</div>
+                <div class="legend-item"><div class="dot" style="background:#b04bff"></div> 반전</div>
+            </div>
+
+            <button class="btn" onclick="startGame()">도전하기</button>
+        </div>
+
+        <canvas id="gameCanvas" width="1000" height="700"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const progressEl = document.getElementById('progress');
+        const comboEl = document.getElementById('combo');
+        const speedValEl = document.getElementById('speed-val');
+        const accuracyEl = document.getElementById('accuracy-display');
+        const startScreen = document.getElementById('start-screen');
+        const bestScoreEl = document.getElementById('best-score');
+
+        // Web Audio API를 활용한 자체 합성 음악 (박자에 맞춘 멜로디 루프)
+        let audioCtx = null;
+        let isAudioPlaying = false;
+        let musicTimer = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playBeep(freq, type = 'sine', duration = 0.15) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function startBGM() {
+            initAudio();
+            isAudioPlaying = true;
+            let step = 0;
+            // 130 BPM 기준 박자 연주 루프
+            const notes = [220, 330, 440, 523, 440, 330, 370, 493];
+            musicTimer = setInterval(() => {
+                if (!isAudioPlaying) return;
+                playBeep(notes[step % notes.length], 'triangle', 0.2);
+                step++;
+            }, 230);
+        }
+
+        function stopBGM() {
+            isAudioPlaying = false;
+            if (musicTimer) {
+                clearInterval(musicTimer);
+                musicTimer = null;
+            }
+        }
+
+        // 스킨 설정
+        let currentSkin = 'classic';
+        let bestProgress = localStorage.getItem('adofai_best') || 0;
+        bestScoreEl.textContent = bestProgress + '%';
+        updateSkinButtons();
+
+        function setSkin(skin) {
+            currentSkin = skin;
+            document.querySelectorAll('.skin-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('skin-' + skin).classList.add('active');
+        }
+
+        function updateSkinButtons() {
+            if (bestProgress >= 30) {
+                document.getElementById('skin-neon').disabled = false;
+                document.getElementById('skin-neon').textContent = '네온 하트';
+            }
+            if (bestProgress >= 70) {
+                document.getElementById('skin-star').disabled = false;
+                document.getElementById('skin-star').textContent = '골드 스타';
+            }
+        }
+
+        const TILE_SIZE = 80;
+        const R = TILE_SIZE / 2;
+
+        const pathDirections = [
+            0, 0, 1, 0, 1, 0, 3, 0, 3, 0,
+            0, 1, 1, 0, 0, 2, 1, 1, 0, 0,
+            3, 3, 0, 0, 1, 0, 3, 0, 0, 2,
+            2, 3, 3, 0, 0, 1, 1, 0, 0, 0,
+            3, 2, 2, 1, 0, 0, 3, 3, 0, 0
+        ];
+
+        const tileTypes = [
+            'normal', 'normal', 'normal', 'speedUp', 'normal', 'normal', 'normal', 'reverse', 'normal', 'normal',
+            'normal', 'speedUp', 'normal', 'normal', 'slowDown', 'normal', 'reverse', 'normal', 'normal', 'speedUp',
+            'normal', 'normal', 'reverse', 'normal', 'speedUp', 'normal', 'normal', 'slowDown', 'normal', 'normal',
+            'speedUp', 'normal', 'reverse', 'normal', 'normal', 'speedUp', 'normal', 'normal', 'normal', 'normal',
+            'normal', 'reverse', 'normal', 'speedUp', 'normal', 'normal', 'normal', 'normal', 'normal', 'normal'
+        ];
+
+        let path = [];
+        let particles = [];
+        let trails = [];
+
+        let currentTile = 0;
+        let angle = 0;
+        let startTileAngle = 0;
+        let baseSpeed = 0.065;
+        let currentSpeedMultiplier = 1.0;
+        let rotationDirection = 1; 
+        let activePlanet = 'red';
+        let combo = 0;
+        let isPlaying = false;
+        let isGameOver = false;
+
+        let cameraAngle = 0;
+        let targetCameraAngle = 0;
+
+        function buildMap() {
+            path = [];
+            let x = 0;
+            let y = 0;
+            path.push({ x, y, targetAngle: 0, type: 'normal' });
+
+            for (let i = 0; i < pathDirections.length; i++) {
+                const dir = pathDirections[i];
+                if (dir === 0) x += TILE_SIZE;
+                else if (dir === 1) y -= TILE_SIZE;
+                else if (dir === 2) x -= TILE_SIZE;
+                else if (dir === 3) y += TILE_SIZE;
+
+                const prev = path[path.length - 1];
+                const targetAngle = Math.atan2(y - prev.y, x - prev.x);
+                const type = tileTypes[i] || 'normal';
+
+                path.push({ x, y, targetAngle, type });
+            }
+        }
+
+        function handleInput() {
+            if (!isPlaying) {
+                startGame();
+                return;
+            }
+            if (isGameOver) {
+                resetGame();
+                return;
+            }
+            checkHit();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                handleInput();
+            }
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            handleInput();
+        });
+
+        function checkHit() {
+            if (currentTile >= path.length - 1) return;
+
+            const next = path[currentTile + 1];
+            let targetAngle = next.targetAngle;
+            let currentAngle = activePlanet === 'red' ? angle : angle + Math.PI;
+
+            let diff = Math.abs(normalizeAngle(currentAngle) - normalizeAngle(targetAngle));
+            if (diff > Math.PI) diff = Math.PI * 2 - diff;
+
+            const perfectThreshold = 0.28;
+            const greatThreshold = 0.50;
+
+            if (diff < perfectThreshold) {
+                playBeep(587.33, 'sine', 0.1);
+                showAccuracy('PERFECT', '#00f0ff');
+                successHit();
+            } else if (diff < greatThreshold) {
+                playBeep(440, 'sine', 0.1);
+                showAccuracy('GREAT', '#50ff50');
+                successHit();
+            } else {
+                playBeep(150, 'sawtooth', 0.3);
+                gameOver('TOO EARLY / LATE');
+            }
+        }
+
+        function successHit() {
+            currentTile++;
+            combo++;
+            comboEl.textContent = combo;
+
+            const progress = Math.round((currentTile / (path.length - 1)) * 100);
+            progressEl.textContent = progress + '%';
+
+            // 최고 기록 갱신 체크
+            if (progress > bestProgress) {
+                bestProgress = progress;
+                localStorage.setItem('adofai_best', bestProgress);
+                bestScoreEl.textContent = bestProgress + '%';
+                updateSkinButtons();
+            }
+
+            const progressSpeedBonus = 1 + (currentTile / path.length) * 0.6;
+
+            const tile = path[currentTile];
+            if (tile.type === 'speedUp') {
+                currentSpeedMultiplier *= 1.3;
+                createExplosion(tile.x, tile.y, '#ff4b4b', 25);
+            } else if (tile.type === 'slowDown') {
+                currentSpeedMultiplier = Math.max(0.8, currentSpeedMultiplier * 0.8);
+                createExplosion(tile.x, tile.y, '#4b7bff', 25);
+            } else if (tile.type === 'reverse') {
+                rotationDirection *= -1;
+                createExplosion(tile.x, tile.y, '#b04bff', 25);
+            } else {
+                createExplosion(tile.x, tile.y, activePlanet === 'red' ? '#ff4b4b' : '#4b7bff', 15);
+            }
+
+            speedValEl.textContent = (currentSpeedMultiplier * progressSpeedBonus).toFixed(1) + 'x';
+
+            targetCameraAngle = -tile.targetAngle;
+            activePlanet = activePlanet === 'red' ? 'blue' : 'red';
+            startTileAngle = angle;
+
+            if (currentTile === path.length - 1) {
+                showAccuracy('CLEAR!', '#ffd700');
+                isPlaying = false;
+                stopBGM();
+                setTimeout(() => {
+                    alert('완벽합니다! 광속 완주에 성공하셨습니다.');
+                    resetGame();
+                }, 500);
+            }
+        }
+
+        function gameOver(reason = 'MISSED!') {
+            isGameOver = true;
+            isPlaying = false;
+            stopBGM();
+            showAccuracy(reason, '#ff3333');
+            setTimeout(() => {
+                startScreen.style.display = 'flex';
+                document.querySelector('#start-screen h1').textContent = 'GAME OVER';
+            }, 800);
+        }
+
+        function normalizeAngle(a) {
+            a = a % (Math.PI * 2);
+            return a < 0 ? a + Math.PI * 2 : a;
+        }
+
+        function showAccuracy(text, color) {
+            accuracyEl.textContent = text;
+            accuracyEl.style.color = color;
+            accuracyEl.style.opacity = '1';
+            accuracyEl.style.transform = 'translate(-50%, -60%) scale(1.2)';
+
+            setTimeout(() => {
+                accuracyEl.style.opacity = '0';
+                accuracyEl.style.transform = 'translate(-50%, -50%) scale(1)';
+            }, 250);
+        }
+
+        function createExplosion(x, y, color, count = 15) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x, y,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12,
+                    size: Math.random() * 5 + 2,
+                    color,
+                    alpha: 1
+                });
+            }
+        }
+
+        function startGame() {
+            buildMap();
+            currentTile = 0;
+            angle = 0;
+            startTileAngle = 0;
+            combo = 0;
+            currentSpeedMultiplier = 1.0;
+            rotationDirection = 1;
+            activePlanet = 'red';
+            isPlaying = true;
+            isGameOver = false;
+            cameraAngle = 0;
+            targetCameraAngle = 0;
+            
+            comboEl.textContent = '0';
+            progressEl.textContent = '0%';
+            speedValEl.textContent = '1.0x';
+            startScreen.style.display = 'none';
+
+            startBGM();
+        }
+
+        function resetGame() {
+            stopBGM();
+            document.querySelector('#start-screen h1').textContent = 'A DANCE OF FIRE AND ICE';
+            startScreen.style.display = 'flex';
+            updateSkinButtons();
+        }
+
+        function update() {
+            if (isPlaying) {
+                const progressBonus = 1 + (currentTile / path.length) * 0.6;
+                const finalSpeed = baseSpeed * currentSpeedMultiplier * progressBonus;
+                angle += finalSpeed * rotationDirection;
+
+                const rotatedAmount = Math.abs(angle - startTileAngle);
+                if (rotatedAmount >= Math.PI * 2) {
+                    gameOver('TIMEOUT!');
+                    return;
+                }
+            }
+
+            cameraAngle += (targetCameraAngle - cameraAngle) * 0.1;
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.04;
+                if (p.alpha <= 0) particles.splice(i, 1);
+            }
+
+            if (isPlaying && Math.random() < 0.8) {
+                const pivot = path[currentTile];
+                let rx = activePlanet === 'red' ? pivot.x + Math.cos(angle) * R : pivot.x;
+                let ry = activePlanet === 'red' ? pivot.y + Math.sin(angle) * R : pivot.y;
+                let bx = activePlanet === 'blue' ? pivot.x + Math.cos(angle + Math.PI) * R : pivot.x;
+                let by = activePlanet === 'blue' ? pivot.y + Math.sin(angle + Math.PI) * R : pivot.y;
+
+                trails.push({ x: rx, y: ry, color: 'rgba(255, 75, 75, 0.6)', size: 12, alpha: 0.8 });
+                trails.push({ x: bx, y: by, color: 'rgba(75, 123, 255, 0.6)', size: 12, alpha: 0.8 });
+            }
+
+            for (let i = trails.length - 1; i >= 0; i--) {
+                const t = trails[i];
+                t.alpha -= 0.06;
+                t.size *= 0.88;
+                if (t.alpha <= 0) trails.splice(i, 1);
+            }
+        }
+
+        function drawCustomShape(ctx, x, y, skin, type) {
+            ctx.save();
+            ctx.translate(x, y);
+            if (skin === 'neon') {
+                // 하트 모양 스킨
+                ctx.fillStyle = type === 'red' ? '#ff3366' : '#33ccff';
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                ctx.moveTo(0, 4);
+                ctx.bezierCurveTo(0, -2, -10, -12, -16, -4);
+                ctx.bezierCurveTo(-22, 6, -2, 16, 0, 22);
+                ctx.bezierCurveTo(2, 16, 22, 6, 16, -4);
+                ctx.bezierCurveTo(10, -12, 0, -2, 0, 4);
+                ctx.fill();
+            } else if (skin === 'star') {
+                // 별 모양 스킨
+                ctx.fillStyle = type === 'red' ? '#ffd700' : '#00ffff';
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.shadowBlur = 15;
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    ctx.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * 14, -Math.sin((18 + i * 72) * Math.PI / 180) * 14);
+                    ctx.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * 7, -Math.sin((54 + i * 72) * Math.PI / 180) * 7);
+                }
+                ctx.closePath();
+                ctx.fill();
+            } else {
+                // 클래식 동그라미 스킨
+                ctx.shadowColor = type === 'red' ? '#ff4b4b' : '#4b7bff';
+                ctx.shadowBlur = 20;
+                ctx.beginPath();
+                ctx.arc(0, 0, 15, 0, Math.PI * 2);
+                ctx.fillStyle = type === 'red' ? '#ff4b4b' : '#4b7bff';
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (path.length === 0) return;
+
+            const currentPos = path[currentTile];
+
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(cameraAngle);
+            ctx.translate(-currentPos.x, -currentPos.y);
+
+            // 1. 타일 그리기
+            for (let i = 0; i < path.length; i++) {
+                const p = path[i];
+                const isPassed = i <= currentTile;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
+
+                if (p.type === 'speedUp') ctx.fillStyle = isPassed ? '#5a1e1e' : '#ff4b4b';
+                else if (p.type === 'slowDown') ctx.fillStyle = isPassed ? '#1e2d5a' : '#4b7bff';
+                else if (p.type === 'reverse') ctx.fillStyle = isPassed ? '#421e5a' : '#b04bff';
+                else ctx.fillStyle = isPassed ? '#222538' : '#3d4363';
+
+                ctx.shadowColor = isPassed ? 'transparent' : ctx.fillStyle;
+                ctx.shadowBlur = isPassed ? 0 : 8;
+                ctx.fill();
+
+                if (i < path.length - 1) {
+                    const next = path[i + 1];
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(next.x, next.y);
+                    ctx.lineWidth = 14;
+                    ctx.strokeStyle = isPassed ? '#222538' : '#3d4363';
+                    ctx.stroke();
+                }
+            }
+            ctx.shadowBlur = 0;
+
+            // 2. 잔상
+            for (let t of trails) {
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, t.size, 0, Math.PI * 2);
+                ctx.fillStyle = t.color;
+                ctx.fill();
+            }
+
+            // 3. 파티클
+            for (let p of particles) {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 4. 행성 및 궤도
+            const pivot = path[currentTile];
+            let redX, redY, blueX, blueY;
+
+            if (activePlanet === 'red') {
+                blueX = pivot.x;
+                blueY = pivot.y;
+                redX = pivot.x + Math.cos(angle) * R;
+                redY = pivot.y + Math.sin(angle) * R;
+            } else {
+                redX = pivot.x;
+                redY = pivot.y;
+                blueX = pivot.x + Math.cos(angle + Math.PI) * R;
+                blueY = pivot.y + Math.sin(angle + Math.PI) * R;
+            }
+
+            // 궤도 가이드
+            ctx.beginPath();
+            ctx.arc(pivot.x, pivot.y, R, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 커스텀 스킨 그리기
+            drawCustomShape(ctx, redX, redY, currentSkin, 'red');
+            drawCustomShape(ctx, blueX, blueY, currentSkin, 'blue');
+
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        buildMap();
+        gameLoop();
+    </script>
+</body>
+</html>
